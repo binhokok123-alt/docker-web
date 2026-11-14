@@ -1,0 +1,25 @@
+﻿services:
+  webbanhang:
+    image: webbanhang:latest
+    build:
+      context: .
+      dockerfile: webbanhang/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Binhok@123456;TrustServerCertificate=True
+    depends_on:
+      - sqlserver
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Binhok@123456
+    ports:
+      - "1434:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+
+volumes:
+  sqldata:

@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sqlserver-auto-backup
+spec:
+  # Lịch chạy: 00:00 mỗi đêm (định dạng: Phút Giờ Ngày Tháng Thứ)
+  # Có thể đổi thành "*/10 * * * *" nếu muốn chạy thử mỗi 10 phút
+  schedule: "0 0 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup-runner
+              image: mcr.microsoft.com/mssql/server:2022-latest
+              env:
+                - name: SA_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: sqlserver-secret
+                      key: sa-password
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  echo "============================================="
+                  echo "Bat dau qua trinh backup SQL Server tu dong..."
+                  TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+                  BACKUP_FILE="/var/opt/mssql/backup_auto_${TIMESTAMP}.bak"
+                  
+                  echo "Dang tao ban sao luu: ${BACKUP_FILE}"
+                  
+                  /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$SA_PASSWORD" -No -Q "
+                    BACKUP DATABASE [WebBanHang-docker] 
+                    TO DISK = '${BACKUP_FILE}' 
+                    WITH FORMAT, MEDIANAME = 'SQLServerBackups', NAME = 'Full Backup';
+                  "
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "============================================="
+                    echo "Backup thanh cong! File da duoc luu vao PVC sqldata:"
+                    echo "-> ${BACKUP_FILE}"
+                    echo "============================================="
+                  else
+                    echo "Backup that bai! Vui long kiem tra lai ket noi SQL Server."
+                    exit 1
+                  fi
+

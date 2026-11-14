@@ -1,0 +1,10 @@
+## Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+
+## Build outputs
+[Bb]in/
+[Oo]bj/

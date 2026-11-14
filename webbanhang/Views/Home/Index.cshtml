@@ -1,0 +1,35 @@
+﻿@{
+    ViewData["Title"] = "Trang chủ";
+}
+
+<div class="text-center py-5" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; color: white; margin-bottom: 40px;">
+    <h1 class="display-4 fw-bold mb-3"><i class="fas fa-store me-3" style="color:#e94560"></i>ShopOnline</h1>
+    <p class="lead text-secondary mb-4">Mua sắm dễ dàng, giá tốt mỗi ngày</p>
+    <a asp-controller="Product" asp-action="Index" class="btn btn-lg px-5" style="background:#e94560; color:white; border-radius:30px;">
+        <i class="fas fa-shopping-bag me-2"></i>Xem sản phẩm
+    </a>
+</div>
+
+<div class="row g-4 text-center">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 p-4">
+            <i class="fas fa-shipping-fast fa-3x mb-3" style="color:#e94560"></i>
+            <h5 class="fw-bold">Giao hàng nhanh</h5>
+            <p class="text-muted">Giao hàng toàn quốc trong 2-3 ngày làm việc</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 p-4">
+            <i class="fas fa-shield-alt fa-3x mb-3" style="color:#e94560"></i>
+            <h5 class="fw-bold">Bảo hành chính hãng</h5>
+            <p class="text-muted">Tất cả sản phẩm đều có bảo hành chính hãng</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100 p-4">
+            <i class="fas fa-undo fa-3x mb-3" style="color:#e94560"></i>
+            <h5 class="fw-bold">Đổi trả dễ dàng</h5>
+            <p class="text-muted">Hoàn tiền 100% nếu không hài lòng trong 7 ngày</p>
+        </div>
+    </div>
+</div>
