@@ -9,7 +9,9 @@ Dự án website bán hàng viết bằng **ASP.NET Core 9** kết nối **Micro
 2. [Chế độ 1: Docker Swarm (Khuyên dùng với Docker Desktop)](#1-chế-độ-1-docker-swarm-khuyên-dùng-với-docker-desktop)
 3. [Chế độ 2: Docker Compose (Phát triển Local Dev)](#2-chế-độ-2-docker-compose-phát-triển-local-dev)
 4. [Chế độ 3: Kubernetes - K8s](#3-chế-độ-3-kubernetes---k8s)
-5. [Tự động hóa CI/CD với GitHub Actions](#4-tự-động-hóa-cicd-với-github-actions)
+5. [Tự động hóa CI/CD với GitHub Actions, Watchtower & K8s Auto-sync](#4-tự-động-hóa-cicd-với-github-actions-watchtower--k8s-auto-sync)
+6. [Sao lưu & Phục hồi Database (Backup & Restore)](#5-sao-lưu--phục-hồi-database-backup--restore)
+7. [Tự động co giãn theo tải (Auto-Scaling & HPA)](#6-tự-động-co-giãn-theo-tải-auto-scaling--hpa)
 
 ---
 
@@ -124,13 +126,34 @@ docker compose build
 kubectl apply -f k8s/
 ```
 
-### Bước 2: Mở port 30080 để truy cập từ Windows
-```powershell
-kubectl port-forward --address 0.0.0.0 svc/webbanhang 30080:8080
-```
-* **Địa chỉ truy cập:** [http://localhost:30080](http://localhost:30080)
+### Bước 2: Mở port để truy cập từ Windows
+* **Cách 1 (Khuyên dùng):** Chạy script tự động duy trì kết nối cổng 30080 (tự kết nối lại khi Pod restart/rolling update):
+  ```powershell
+  ./k8s/port-forward-loop.ps1
+  ```
+* **Cách 2:** Forward thủ công cả Web (port 30080) và SQL Server (port 1435):
+  ```powershell
+  # Forward port Web:
+  kubectl port-forward service/webbanhang 30080:8080
 
-### Bước 3: Kiểm tra và quản trị K8s
+  # Forward port Database (mở terminal riêng):
+  kubectl port-forward service/sqlserver 1435:1433
+  ```
+* **Hoặc chạy ngầm cả 2 trong 1 terminal PowerShell:**
+  ```powershell
+  Start-Job { kubectl port-forward service/webbanhang 30080:8080 }
+  kubectl port-forward service/sqlserver 1435:1433
+  ```
+* **Địa chỉ truy cập Web:** [http://localhost:30080](http://localhost:30080)
+* **Kết nối SSMS vào SQL Server K8s:** Server `127.0.0.1,1435` | User: `sa` | Password: `Ctt@1234` | Trust Server Certificate: ✓
+
+### Bước 3: Tự động cập nhật Kubernetes khi có code mới (CI/CD Auto-sync)
+```powershell
+# Bật script ngầm để K8s tự động kéo image mới nhất về khi bạn hoặc team push code lên GitHub:
+./k8s/auto-sync-watcher.ps1
+```
+
+### Bước 4: Kiểm tra và quản trị K8s
 ```powershell
 # Xem tất cả Pods, Services, PVC, PDB:
 kubectl get pods,svc,pvc,pdb
@@ -142,7 +165,7 @@ kubectl logs -l app=webbanhang -f
 kubectl logs -l app=sqlserver -f
 ```
 
-### Bước 4: Test tính năng HA trên Kubernetes
+### Bước 5: Test tính năng HA trên Kubernetes
 ```powershell
 # Test 1: Xóa thử 1 Pod web:
 kubectl delete pod <TEN_POD_WEBBANHANG>
@@ -155,17 +178,151 @@ kubectl scale deployment webbanhang --replicas=5
 kubectl get pdb
 ```
 
-### Bước 5: Xóa dọn dẹp K8s khi không dùng
-```powershell
-kubectl delete -f k8s/
-```
+### Bước 6: Dừng tạm thời hoặc Xóa dọn dẹp K8s
+* **Dừng tạm (giữ nguyên dữ liệu database, chạy lại không cần tạo lại DB):**
+  ```powershell
+  kubectl delete deployment webbanhang sqlserver
+  kubectl delete service webbanhang sqlserver
+  kubectl delete secret sqlserver-secret
+  ```
+  *Chạy lại khi cần:*
+  ```powershell
+  kubectl apply -f k8s/
+  ./k8s/port-forward-loop.ps1
+  ```
+* **Xóa hoàn toàn hệ thống và dọn dẹp:**
+  ```powershell
+  kubectl delete -f k8s/
+  ```
 
 ---
 
-## 4. Tự động hóa CI/CD với GitHub Actions & Watchtower (Tự động cập nhật Container)
+## 4. Tự động hóa CI/CD với GitHub Actions, Watchtower & K8s Auto-sync
 
-Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml` kết hợp dịch vụ **Watchtower** trong `docker-compose.yml`:
-* **Quy trình hoạt động hoàn toàn tự động:**
-  1. Khi bạn sửa code và gõ `git push origin main`.
-  2. GitHub Actions tự động kiểm tra cú pháp, build .NET và đóng gói Docker image, sau đó đẩy image `webbanhang:latest` lên **Docker Hub**.
-  3. Dịch vụ **Watchtower** đang chạy ngầm trong máy sẽ kiểm tra định kỳ mỗi 30s. Khi thấy image mới trên Docker Hub, Watchtower sẽ **tự động kéo (pull) về và restart container web với code mới ngay lập tức**, bạn chỉ việc F5 lại trình duyệt!
+Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml` kết hợp dịch vụ **Watchtower** trong `docker-compose.yml` và bộ **Auto-sync Watcher** cho Kubernetes:
+
+### Quy trình hoạt động hoàn toàn tự động:
+1. Khi có bất kỳ thay đổi code nào được push lên GitHub: `git push origin main`.
+2. **GitHub Actions** tự động biên dịch .NET 9, đóng gói Docker Image và đẩy image mới nhất lên Docker Hub (`thanhvippro/webbanhang:latest`).
+3. **Phía Docker Compose (Port 8080):**
+   * Container **Watchtower** đang chạy ngầm định kỳ quét Docker Hub mỗi 10-20s.
+   * Khi phát hiện image mới, Watchtower **tự động pull về và restart lại các container web** với code mới ngay lập tức.
+4. **Phía Kubernetes (Port 30080):**
+   * Script `./k8s/auto-sync-watcher.ps1` phát hiện image mới từ Docker Hub và **tự động kích hoạt RollingUpdate** trên cụm Kubernetes (`kubectl rollout restart deployment/webbanhang`).
+   * Kubernetes sẽ lần lượt thay thế từng Pod cũ bằng Pod mới mang code mới mà không làm gián đoạn người dùng (Zero Downtime).
+
+### Hướng dẫn cho người mới clone dự án về:
+1. **Nếu chạy Docker Compose:**
+   ```powershell
+   docker compose up -d
+   ```
+   *(Docker sẽ tự động tải Watchtower cùng Web & SQL Server về, CI/CD tự kích hoạt 100%)*
+2. **Nếu chạy Kubernetes:**
+   ```powershell
+   # 1. Triển khai tài nguyên K8s
+   kubectl apply -f k8s/
+
+   # 2. Mở cổng truy cập (tự động phục hồi kết nối)
+   ./k8s/port-forward-loop.ps1
+
+   # 3. (Tùy chọn) Bật tự động cập nhật K8s khi có code mới trên GitHub
+   ./k8s/auto-sync-watcher.ps1
+   ```
+
+---
+
+## 5. Sao lưu & Phục hồi Database (Backup & Restore)
+
+### PHẦN 1: Nếu bạn đang chạy Kubernetes (K8s)
+* **Bước 1: Kích hoạt CronJob tự động (chạy 00:00 mỗi đêm):**
+  ```powershell
+  kubectl apply -f k8s/sqlserver-backup-cronjob.yaml
+  ```
+* **Bước 2: Xem danh sách lịch trình CronJob:**
+  ```powershell
+  kubectl get cronjobs
+  ```
+* **Bước 3: Chạy test sao lưu NGAY LẬP TỨC (không cần chờ đến đêm):**
+  ```powershell
+  kubectl create job --from=cronjob/sqlserver-auto-backup test-backup-01
+  ```
+* **Bước 4: Phục hồi Database (Restore):**
+  ```powershell
+  .\restore-k8s.ps1
+  ```
+* **Xóa các Job test backup đã xong:**
+  ```powershell
+  kubectl delete job test-backup-01
+  ```
+
+### PHẦN 2: Nếu bạn đang chạy Docker Compose
+* **Sao lưu dữ liệu ngay lập tức:**
+  ```powershell
+  .\auto-backup.ps1
+  ```
+* **Phục hồi dữ liệu (Restore) nhanh chóng chỉ bằng 1 lệnh:**
+  ```powershell
+  .\restore-backup.ps1
+  ```
+
+---
+
+## 6. Tự động co giãn theo tải (Auto-Scaling & HPA)
+
+### PHẦN 1: Quan sát Auto-Scaling trên Docker Compose
+* **Bước 1: Khởi động Docker Compose:**
+  ```powershell
+  docker compose up -d
+  ```
+* **Bước 2: Mở Terminal 1 - Bật bộ giám sát Auto-Scaler:**
+  ```powershell
+  .\auto-scale-compose.ps1
+  ```
+* **Bước 3: Mở Terminal 2 - Bắn tải liên tục để kiểm tra:**
+  ```powershell
+  1..10 | ForEach-Object {
+      Start-Job -ScriptBlock {
+          while ($true) {
+              try { Invoke-WebRequest -Uri "http://localhost:8080" -UseBasicParsing | Out-Null } catch {}
+          }
+      }
+  }
+  ```
+* 👉 **Hiện tượng quan sát được:**
+  * Tại **Terminal 1**: Khi CPU trung bình vượt ngưỡng 40%, script nhấp nháy cảnh báo: `[ALERT] CPU vuot nguong 40%! Tien hanh AUTO-SCALE UP len 5 containers...`.
+  * Gõ `docker ps` sẽ thấy số lượng container web tự động tăng từ 2 lên 5 container.
+  * Khi dừng bắn tải: Chạy `Get-Job | Remove-Job -Force`. Vài giây sau khi CPU hạ dưới 15%, script tự động thu gọn về lại 2 container.
+
+### PHẦN 2: Quan sát HPA chính thống trên Kubernetes (K8s)
+* **Bước 1: Khởi động và cài đặt metrics-server (chỉ cần chạy lần đầu):**
+  ```powershell
+  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+  kubectl patch deployment metrics-server -n kube-system --patch-file k8s/metrics-server-patch.yaml
+  ```
+  *Áp dụng cấu hình HPA:*
+  ```powershell
+  kubectl apply -f k8s/webbanhang-hpa.yaml
+  ```
+* **Bước 2: Mở 2 màn hình quan sát K8s:**
+  * *Màn hình A (Theo dõi HPA):*
+    ```powershell
+    kubectl get hpa -w
+    ```
+  * *Màn hình B (Theo dõi số Pod):*
+    ```powershell
+    kubectl get pods -w
+    ```
+* **Bước 3: Bắn tải vào cổng 30080 của K8s:**
+  ```powershell
+  1..15 | ForEach-Object {
+      Start-Job -ScriptBlock {
+          while ($true) {
+              try { Invoke-WebRequest -Uri "http://localhost:30080" -UseBasicParsing | Out-Null } catch {}
+          }
+      }
+  }
+  ```
+* 👉 **Hiện tượng quan sát được:**
+  * Tại **Màn hình A**: Cột `TARGETS` CPU từ 0%/50% sẽ nhảy vọt lên cao.
+  * Tại **Màn hình B**: Kubernetes lập tức tự động sinh thêm Pod mới, cột `REPLICAS` tăng dần từ 2 -> 3 -> 4 -> tối đa 6 Pods!
+  * Khi dừng bắn tải: Chạy `Get-Job | Remove-Job -Force`. Sau thời gian ổn định (khoảng 3-5 phút), K8s sẽ tự động xóa bớt các Pod thừa và co gọn về lại 2 Pods.
