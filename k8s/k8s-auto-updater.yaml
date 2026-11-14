@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-auto-updater-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-auto-updater-cr
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-auto-updater-crb
+subjects:
+  - kind: ServiceAccount
+    name: k8s-auto-updater-sa
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: k8s-auto-updater-cr
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-auto-updater
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8s-auto-updater
+  template:
+    metadata:
+      labels:
+        app: k8s-auto-updater
+    spec:
+      serviceAccountName: k8s-auto-updater-sa
+      containers:
+        - name: auto-updater
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting K8s auto-updater daemon..."
+              PREV_DIGEST=""
+              while true; do
+                TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:thanhvippro/webbanhang:pull" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+                if [ -n "$TOKEN" ]; then
+                  DIGEST=$(curl -s -I -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.docker.distribution.manifest.v2+json" "https://registry.docker.io/v2/thanhvippro/webbanhang/manifests/latest" | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
+                  if [ -n "$DIGEST" ]; then
+                    if [ -z "$PREV_DIGEST" ]; then
+                      PREV_DIGEST="$DIGEST"
+                      echo "Initial image digest detected: $DIGEST"
+                    elif [ "$PREV_DIGEST" != "$DIGEST" ]; then
+                      echo "NEW IMAGE DETECTED ON DOCKER HUB!"
+                      echo "Old digest: $PREV_DIGEST"
+                      echo "New digest: $DIGEST"
+                      PREV_DIGEST="$DIGEST"
+                      kubectl rollout restart deployment/webbanhang
+                      echo "Rollout restart triggered successfully!"
+                    fi
+                  fi
+                fi
+                sleep 15
+              done

@@ -49,7 +49,9 @@ services:
       - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 10 --cleanup
+    command: --interval 10 --cleanup --lifecycle-hooks
+    labels:
+      - "com.centurylinklabs.watchtower.lifecycle.post-update=/bin/sh -c 'echo updated'"
     restart: always
 
 volumes:
