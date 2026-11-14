@@ -49,7 +49,7 @@ services:
       - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 --cleanup thanhvippro/webbanhang
+    command: --interval 10 --cleanup
     restart: always
 
 volumes:
