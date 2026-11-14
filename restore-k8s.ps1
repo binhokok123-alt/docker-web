@@ -21,7 +21,7 @@ RESTORE DATABASE [WebBanHang-docker] FROM DISK = '$latestBackup' WITH REPLACE;
 ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;
 "@
 
-kubectl exec deployment/sqlserver -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Binhok@123456" -No -Q "$sql"
+kubectl exec deployment/sqlserver -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Ctt@1234" -No -Q "$sql"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "==========================================" -ForegroundColor Green
@@ -31,5 +31,5 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "==========================================" -ForegroundColor Green
 } else {
     Write-Host "Co loi xay ra khi restore tren K8s!" -ForegroundColor Red
-    kubectl exec deployment/sqlserver -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Binhok@123456" -No -Q "ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;" 2>$null
+    kubectl exec deployment/sqlserver -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Ctt@1234" -No -Q "ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;" 2>$null
 }

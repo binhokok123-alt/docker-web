@@ -28,13 +28,13 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: webbanhang
-          image: webbanhang:latest
-          imagePullPolicy: IfNotPresent
+          image: thanhvippro/webbanhang:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
             - name: ConnectionStrings__DefaultConnection
-              value: "Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Binhok@123456;TrustServerCertificate=True"
+              value: "Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Ctt@1234;TrustServerCertificate=True"
           resources:
             requests:
               cpu: "100m"

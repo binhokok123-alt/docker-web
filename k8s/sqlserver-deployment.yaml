@@ -44,7 +44,7 @@ spec:
                 - -U
                 - sa
                 - -P
-                - Binhok@123456
+                - Ctt@1234
                 - -Q
                 - SELECT 1
                 - -No
@@ -60,7 +60,7 @@ spec:
                 - -U
                 - sa
                 - -P
-                - Binhok@123456
+                - Ctt@1234
                 - -Q
                 - SELECT 1
                 - -No
