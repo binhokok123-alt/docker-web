@@ -31,7 +31,7 @@ RESTORE DATABASE [WebBanHang-docker] FROM DISK = '/var/opt/mssql/$backupFileName
 ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;
 "@
 
-docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Ctt@1234" -No -Q "$restoreSql"
+docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Binhok@123456" -No -Q "$restoreSql"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "==========================================" -ForegroundColor Green
@@ -42,5 +42,5 @@ if ($LASTEXITCODE -eq 0) {
 } else {
     Write-Host "Co loi xay ra trong qua trinh restore!" -ForegroundColor Red
     # Dam bao dua database ve lai MULTI_USER neu bi loi
-    docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Ctt@1234" -No -Q "ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;" 2>$null
+    docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Binhok@123456" -No -Q "ALTER DATABASE [WebBanHang-docker] SET MULTI_USER;" 2>$null
 }

@@ -43,7 +43,7 @@ docker compose build
 docker stack deploy -c docker-compose.yml myapp
 ```
 * **Địa chỉ truy cập Web:** [http://localhost:8080](http://localhost:8080)
-* **Kết nối SQL Server:** Host `localhost,1434` | User: `sa` | Password: `Ctt@1234` | DB: `WebBanHang-docker`
+* **Kết nối SQL Server:** Host `localhost,1434` | User: `sa` | Password: `Binhok@123456` | DB: `WebBanHang-docker`
 
 ### Bước 2: Kiểm tra và giám sát
 ```powershell
@@ -145,7 +145,7 @@ kubectl apply -f k8s/
   kubectl port-forward service/sqlserver 1435:1433
   ```
 * **Địa chỉ truy cập Web:** [http://localhost:30080](http://localhost:30080)
-* **Kết nối SSMS vào SQL Server K8s:** Server `127.0.0.1,1435` | User: `sa` | Password: `Ctt@1234` | Trust Server Certificate: ✓
+* **Kết nối SSMS vào SQL Server K8s:** Server `127.0.0.1,1435` | User: `sa` | Password: `Binhok@123456` | Trust Server Certificate: ✓
 
 ### Bước 3: Tự động cập nhật Kubernetes khi có code mới (CI/CD Auto-sync)
 ```powershell

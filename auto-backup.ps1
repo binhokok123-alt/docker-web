@@ -16,7 +16,7 @@ if (-not $containerId) {
 Write-Host "Dang thuc hien backup tu container SQL Server ($containerId)..." -ForegroundColor Cyan
 
 # 1. Chay lenh backup ben trong container
-docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Ctt@1234" -No -Q "BACKUP DATABASE [WebBanHang-docker] TO DISK = '/var/opt/mssql/$backupFileName' WITH FORMAT;"
+docker exec $containerId /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Binhok@123456" -No -Q "BACKUP DATABASE [WebBanHang-docker] TO DISK = '/var/opt/mssql/$backupFileName' WITH FORMAT;"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Co loi xay ra trong luc backup ben trong container!" -ForegroundColor Red
