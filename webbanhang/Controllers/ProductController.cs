@@ -18,7 +18,8 @@ namespace webbanhang.Controllers
 
         private bool IsAdmin()
         {
-            var username = HttpContext.Session.GetString("Username");
+            var username = HttpContext.Session.GetString("Username") 
+                           ?? Request.Cookies["Username"];
             return string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase);
         }
 

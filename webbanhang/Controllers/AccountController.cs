@@ -56,6 +56,19 @@ namespace webbanhang.Controllers
 
             HttpContext.Session.SetString("UserId", user.Id.ToString());
             HttpContext.Session.SetString("Username", user.Username);
+
+            // Lưu Cookie để khi Nginx/K8s cân bằng tải sang bản sao khác vẫn giữ đăng nhập
+            Response.Cookies.Append("Username", user.Username, new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddDays(7),
+                SameSite = SameSiteMode.Lax
+            });
+            Response.Cookies.Append("UserId", user.Id.ToString(), new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddDays(7),
+                SameSite = SameSiteMode.Lax
+            });
+
             return RedirectToAction("Index", "Home");
         }
 
@@ -63,6 +76,8 @@ namespace webbanhang.Controllers
         public IActionResult Logout()
         {
             HttpContext.Session.Clear();
+            Response.Cookies.Delete("Username");
+            Response.Cookies.Delete("UserId");
             return RedirectToAction("Login");
         }
     }

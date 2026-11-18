@@ -4,7 +4,8 @@
 
 @{
     ViewData["Title"] = "Danh sách sản phẩm";
-    var currentUsername = HttpContextAccessor.HttpContext?.Session.GetString("Username");
+    var currentUsername = HttpContextAccessor.HttpContext?.Session.GetString("Username") 
+                          ?? HttpContextAccessor.HttpContext?.Request.Cookies["Username"];
     var isAdmin = string.Equals(currentUsername, "admin", StringComparison.OrdinalIgnoreCase);
 }
 
