@@ -12,6 +12,7 @@ Dự án website bán hàng viết bằng **ASP.NET Core 9** kết nối **Micro
 5. [Tự động hóa CI/CD với GitHub Actions, Watchtower & K8s Auto-sync](#4-tự-động-hóa-cicd-với-github-actions-watchtower--k8s-auto-sync)
 6. [Sao lưu & Phục hồi Database (Backup & Restore)](#5-sao-lưu--phục-hồi-database-backup--restore)
 7. [Tự động co giãn theo tải (Auto-Scaling & HPA)](#6-tự-động-co-giãn-theo-tải-auto-scaling--hpa)
+8. [Hệ thống Giám sát & Dashboard (Prometheus & Grafana)](#7-hệ-thống-giám-sát--dashboard-prometheus--grafana-monitoring)
 
 ---
 
@@ -326,3 +327,72 @@ Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml
   * Tại **Màn hình A**: Cột `TARGETS` CPU từ 0%/50% sẽ nhảy vọt lên cao.
   * Tại **Màn hình B**: Kubernetes lập tức tự động sinh thêm Pod mới, cột `REPLICAS` tăng dần từ 2 -> 3 -> 4 -> tối đa 6 Pods!
   * Khi dừng bắn tải: Chạy `Get-Job | Remove-Job -Force`. Sau thời gian ổn định (khoảng 3-5 phút), K8s sẽ tự động xóa bớt các Pod thừa và co gọn về lại 2 Pods.
+
+---
+
+## 7. Hệ thống Giám sát & Dashboard (Prometheus & Grafana Monitoring)
+
+Dự án đã tích hợp sẵn hệ thống quan sát chuyên nghiệp (Monitoring Stack) theo chuẩn Cloud-Native nằm trong thư mục `k8s/monitoring/`:
+* **Prometheus:** Thu thập chỉ số CPU, RAM, Network Traffic, Pod status từ cụm K8s.
+* **Kube-State-Metrics (KSM):** Cung cấp trạng thái chi tiết của Deployment, Pods, HPA.
+* **Grafana:** Trực quan hóa dữ liệu thời gian thực thành biểu đồ, **tự động nạp sẵn Dashboard** (Provisioning) không cần cấu hình bằng tay.
+
+---
+
+### Bước 1: Khởi chạy bộ Giám sát (Chỉ 1 lệnh duy nhất)
+Mở PowerShell tại thư mục dự án và chạy:
+```powershell
+kubectl apply -f k8s/monitoring/
+```
+> Lệnh này sẽ tự động triển khai Prometheus, Kube-State-Metrics và Grafana lên cụm K8s.
+
+### Bước 2: Kiểm tra các Pod giám sát đã chạy
+```powershell
+kubectl get pods -l "app in (prometheus, grafana)"
+```
+*(Chờ khoảng 30s - 1 phút để các Pod chuyển sang trạng thái `Running`)*.
+
+### Bước 3: Truy cập Grafana Dashboard
+* **Địa chỉ truy cập Grafana:** [http://localhost:32000](http://localhost:32000)
+* **Tài khoản đăng nhập:**
+  * **Username:** `admin`
+  * **Password:** `admin`
+* **Vào xem Dashboard trực tiếp:**
+  1. Vào menu bên trái chọn **Dashboards** (hoặc biểu tượng 4 ô vuông).
+  2. Bấm vào Dashboard: **`WebBanHang - Giam Sat Tai & HPA`**.
+  3. Bạn sẽ thấy 4 biểu đồ hiển thị thời gian thực:
+     * **Số Pod WebBanHang Đang Chạy** (Hiện số lượng 3 -> 6 Pods).
+     * **CPU Pod WebBanHang vs Ngưỡng HPA (50%)**.
+     * **RAM Tiêu Thụ** (WebBanHang & SQL Server).
+     * **Lưu Lượng Mạng** (Network Traffic).
+
+---
+
+### Bước 4: Thử nghiệm Bắn tải và Quan sát Biểu đồ nhảy số
+Để bạn của bạn thấy biểu đồ tăng vọt và K8s tự động scale Pods từ 3 lên 6:
+
+1. **Bắn tải (Mở Terminal chạy lệnh):**
+   ```powershell
+   1..15 | ForEach-Object {
+       Start-Job -ScriptBlock {
+           while ($true) {
+               try { Invoke-WebRequest -Uri "http://localhost:30080" -UseBasicParsing | Out-Null } catch {}
+           }
+       }
+   }
+   ```
+2. **Quan sát trên Grafana:**
+   * Cột CPU sẽ vọt lên qua vạch 50%.
+   * Ô "Số Pod WebBanHang Đang Chạy" sẽ nhảy từ **3 Pods** lên **6 Pods**!
+3. **Tắt bắn tải để hạ nhiệt:**
+   ```powershell
+   Get-Job | Remove-Job -Force
+   ```
+   *(Sau khoảng 1-2 phút, CPU hạ nhiệt và HPA sẽ tự động co gọn Pods về lại 3 bản sao ban đầu).*
+
+---
+
+### Xóa/Dọn dẹp hệ thống Monitoring khi không dùng:
+```powershell
+kubectl delete -f k8s/monitoring/
+```
