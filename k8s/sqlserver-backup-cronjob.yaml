@@ -3,9 +3,9 @@ kind: CronJob
 metadata:
   name: sqlserver-auto-backup
 spec:
-  # Lịch chạy: 00:00 mỗi đêm (định dạng: Phút Giờ Ngày Tháng Thứ)
-  # Có thể đổi thành "*/10 * * * *" nếu muốn chạy thử mỗi 10 phút
-  schedule: "0 0 * * *"
+  # Lịch chạy: Chạy tự động mỗi 10 phút (*/10) theo múi giờ Việt Nam
+  timeZone: "Asia/Ho_Chi_Minh"
+  schedule: "*/30 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
@@ -18,6 +18,8 @@ spec:
             - name: backup-runner
               image: mcr.microsoft.com/mssql/server:2022-latest
               env:
+                - name: TZ
+                  value: "Asia/Ho_Chi_Minh"
                 - name: SA_PASSWORD
                   valueFrom:
                     secretKeyRef:
@@ -27,8 +29,9 @@ spec:
                 - /bin/bash
                 - -c
                 - |
+                  export TZ="Asia/Ho_Chi_Minh"
                   echo "============================================="
-                  echo "Bat dau qua trinh backup SQL Server tu dong..."
+                  echo "Bat dau qua trinh backup SQL Server tu dong theo gio Viet Nam..."
                   TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
                   BACKUP_FILE="/var/opt/mssql/backup_auto_${TIMESTAMP}.bak"
                   

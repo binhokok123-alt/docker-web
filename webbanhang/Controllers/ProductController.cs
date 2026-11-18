@@ -16,6 +16,12 @@ namespace webbanhang.Controllers
             _env = env;
         }
 
+        private bool IsAdmin()
+        {
+            var username = HttpContext.Session.GetString("Username");
+            return string.Equals(username, "admin", StringComparison.OrdinalIgnoreCase);
+        }
+
         // GET: /Product
         public async Task<IActionResult> Index()
         {
@@ -26,6 +32,7 @@ namespace webbanhang.Controllers
         // GET: /Product/Create
         public IActionResult Create()
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
             return View();
         }
 
@@ -34,6 +41,8 @@ namespace webbanhang.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Product product, IFormFile? imageFile)
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
+
             if (imageFile != null && imageFile.Length > 0)
             {
                 var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
@@ -61,6 +70,8 @@ namespace webbanhang.Controllers
         // GET: /Product/Edit/5
         public async Task<IActionResult> Edit(int id)
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
+
             var product = await _context.Products.FindAsync(id);
             if (product == null) return NotFound();
             return View(product);
@@ -71,6 +82,8 @@ namespace webbanhang.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, Product product, IFormFile? imageFile)
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
+
             if (id != product.Id) return NotFound();
 
             if (imageFile != null && imageFile.Length > 0)
@@ -100,6 +113,8 @@ namespace webbanhang.Controllers
         // GET: /Product/Delete/5
         public async Task<IActionResult> Delete(int id)
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
+
             var product = await _context.Products.FindAsync(id);
             if (product == null) return NotFound();
             return View(product);
@@ -110,6 +125,8 @@ namespace webbanhang.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            if (!IsAdmin()) return RedirectToAction(nameof(Index));
+
             var product = await _context.Products.FindAsync(id);
             if (product != null)
             {

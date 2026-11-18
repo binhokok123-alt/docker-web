@@ -50,6 +50,19 @@ using (var scope = app.Services.CreateScope())
         try
         {
             db.Database.Migrate(); // Chạy migration
+
+            // Tự động tạo sẵn tài khoản admin nếu chưa có
+            if (!db.Users.Any(u => u.Username.ToLower() == "admin"))
+            {
+                db.Users.Add(new webbanhang.Models.User
+                {
+                    Username = "admin",
+                    Password = "123",
+                    Email = "admin@shop.com"
+                });
+                db.SaveChanges();
+            }
+
             break; // Thành công thì thoát vòng lặp
         }
         catch

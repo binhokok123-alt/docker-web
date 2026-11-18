@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="utf-8" />
@@ -44,8 +44,20 @@
                     <ul class="navbar-nav">
                         @if (Context.Session.GetString("Username") != null)
                         {
+                            var currentUsername = Context.Session.GetString("Username");
+                            var isAdmin = string.Equals(currentUsername, "admin", StringComparison.OrdinalIgnoreCase);
                             <li class="nav-item">
-                                <span class="nav-link"><i class="fas fa-user me-1"></i>@Context.Session.GetString("Username")</span>
+                                <span class="nav-link">
+                                    <i class="fas fa-user me-1"></i>@currentUsername
+                                    @if (isAdmin)
+                                    {
+                                        <span class="badge bg-danger ms-1">Admin</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info text-dark ms-1">User</span>
+                                    }
+                                </span>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Account" asp-action="Logout"><i class="fas fa-sign-out-alt me-1"></i>Đăng xuất</a>
