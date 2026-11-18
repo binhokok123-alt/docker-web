@@ -1,6 +1,7 @@
 services:
   webbanhang:
     image: thanhvippro/webbanhang:latest
+    pull_policy: always
     build:
       context: .
       dockerfile: webbanhang/Dockerfile
