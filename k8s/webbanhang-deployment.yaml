@@ -35,6 +35,13 @@ spec:
           env:
             - name: ConnectionStrings__DefaultConnection
               value: "Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Binhok@123456;TrustServerCertificate=True"
+            - name: Vault__Address
+              value: "http://vault:8200"
+            - name: Vault__Token
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: vault-token
           resources:
             requests:
               cpu: "100m"

@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-secret
+type: Opaque
+stringData:
+  vault-token: "root"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  labels:
+    app: vault
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      containers:
+        - name: vault
+          image: hashicorp/vault:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8200
+          env:
+            - name: VAULT_DEV_ROOT_TOKEN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: vault-token
+            - name: VAULT_DEV_LISTEN_ADDRESS
+              value: "0.0.0.0:8200"
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+spec:
+  type: NodePort
+  selector:
+    app: vault
+  ports:
+    - port: 8200
+      targetPort: 8200
+      nodePort: 32200
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init-job
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: vault-init
+          image: hashicorp/vault:latest
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: vault-token
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Dang cho Vault san sang..."
+              until vault status > /dev/null 2>&1; do
+                sleep 2
+              done
+              echo "Vault da san sang. Dang khoi tao secret/webbanhang..."
+              vault kv put secret/webbanhang ConnectionStrings__DefaultConnection="Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Binhok@123456;TrustServerCertificate=True"
+              echo "Khoi tao secret thanh cong vao Vault tren K8s!"

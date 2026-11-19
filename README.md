@@ -415,42 +415,39 @@ kubectl delete -f k8s/monitoring/
 
 Dự án áp dụng giải pháp quản trị bí mật chuẩn Enterprise **HashiCorp Vault** để giải quyết triệt để nguy cơ lộ mật khẩu Database:
 * **Zero Trust Security:** Mật khẩu SQL Server không lưu trong mã nguồn, không lưu trên Git, mà được cất trong két sắt Vault tại đường dẫn `secret/webbanhang`.
-* **Auto-Provisioning:** Container `vault-init` tự động khởi tạo secret khi hệ thống vừa bật lên.
+* **K8s Secret Masking:** Trên Kubernetes, Token kết nối Vault được mã hóa bên trong K8s Secret (`vault-secret`), không lộ bất kỳ token nào trong file Deployment.
+* **Auto-Provisioning:** Tự động khởi tạo secret khi hệ thống vừa bật lên (Job trên K8s và Container trên Compose).
 * **Resilience & Fallback:** Web tích hợp cơ chế tự phục hồi thông minh. Nếu Vault gặp sự cố hoặc bị tắt, Web tự động chuyển sang chuỗi kết nối dự phòng để duy trì hoạt động 100% không downtime.
 
 ---
 
-### Bước 1: Mở giao diện Két sắt Vault
-* **Địa chỉ:** [http://localhost:8200](http://localhost:8200)
-* **Method:** Chọn **Token**
-* **Token:** Nhập **`root`** -> Bấm **Sign In**.
-* Bấm vào mục **`secret/`** -> chọn **`webbanhang`** để xem chuỗi kết nối SQL Server và mật khẩu `Binhok@123456` được bảo mật an toàn.
+### PHẦN 1: Nếu chạy trên Docker Compose
+* **Mở giao diện Két sắt Vault:** [http://localhost:8200](http://localhost:8200) (Token: **`root`**)
+* **Kiểm tra Web đã nhận Secret:**
+  ```powershell
+  docker compose logs webbanhang | Select-String "VAULT"
+  ```
+* **Kịch bản Demo Tự phục hồi:** Tắt Vault (`docker compose stop vault`) -> restart web (`docker compose restart webbanhang`) -> Web vẫn sống 100%!
 
 ---
 
-### Bước 2: Kiểm tra Web đã kết nối và lấy Secret từ Vault
-Mở PowerShell chạy lệnh:
-```powershell
-docker compose logs webbanhang | Select-String "VAULT"
-```
-👉 Màn hình sẽ xác nhận:
-`[VAULT] Ket noi HashiCorp Vault thanh cong! Da lay chuoi ket noi DB tu Vault.`
-
----
-
-### Bước 3: Kịch bản Demo tính năng Tự phục hồi (Resilience Fallback)
-Khi thuyết trình trước thầy cô, bạn có thể thực hiện bài test chịu lỗi thực tế:
-1. **Tắt két sắt Vault:**
+### PHẦN 2: Nếu chạy trên Kubernetes (K8s)
+1. **Khởi chạy Vault lên cụm K8s:**
    ```powershell
-   docker compose stop vault
+   kubectl apply -f k8s/vault.yaml
+   kubectl apply -f k8s/webbanhang-deployment.yaml
    ```
-2. **Khởi động lại Web khi KHÔNG CÓ Vault:**
+2. **Kiểm tra các Pod Vault và Job khởi tạo đã hoàn thành:**
    ```powershell
-   docker compose restart webbanhang
+   kubectl get pods -l "app=vault"
+   kubectl get jobs vault-init-job
    ```
-3. **Mở trình duyệt `http://localhost:8080`:**
-   👉 Web vẫn hoạt động bình thường nhờ cơ chế Fallback dự phòng!
-4. **Bật lại Vault:**
+3. **Mở giao diện Két sắt Vault K8s từ máy Windows:**
+   * **Địa chỉ:** [http://localhost:32200](http://localhost:32200)
+   * **Method:** Chọn **Token** | **Token:** Nhập **`root`** -> Bấm **Sign In**.
+   * Bấm vào **`secret/`** -> **`webbanhang`** để thấy chuỗi kết nối an toàn.
+4. **Kiểm tra các Pod Web K8s đã lấy mật khẩu từ Vault:**
    ```powershell
-   docker compose start vault
+   kubectl logs -l app=webbanhang | Select-String "VAULT"
    ```
+   👉 Sẽ in ra: `[VAULT] Ket noi HashiCorp Vault thanh cong! Da lay chuoi ket noi DB tu Vault.`
