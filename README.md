@@ -9,10 +9,11 @@ Dự án website bán hàng viết bằng **ASP.NET Core 9** kết nối **Micro
 2. [Chế độ 1: Docker Swarm (Khuyên dùng với Docker Desktop)](#1-chế-độ-1-docker-swarm-khuyên-dùng-với-docker-desktop)
 3. [Chế độ 2: Docker Compose (Phát triển Local Dev)](#2-chế-độ-2-docker-compose-phát-triển-local-dev)
 4. [Chế độ 3: Kubernetes - K8s](#3-chế-độ-3-kubernetes---k8s)
-5. [Tự động hóa CI/CD với GitHub Actions, Watchtower & K8s Auto-sync](#4-tự-động-hóa-cicd-với-github-actions-watchtower--k8s-auto-sync)
+5. [Tự động hóa CI/CD với GitHub Actions & K8s Auto-sync](#4-tự-động-hóa-cicd-với-github-actions--k8s-auto-sync)
 6. [Sao lưu & Phục hồi Database (Backup & Restore)](#5-sao-lưu--phục-hồi-database-backup--restore)
 7. [Tự động co giãn theo tải (Auto-Scaling & HPA)](#6-tự-động-co-giãn-theo-tải-auto-scaling--hpa)
 8. [Hệ thống Giám sát & Dashboard (Prometheus & Grafana)](#7-hệ-thống-giám-sát--dashboard-prometheus--grafana-monitoring)
+9. [Bảo mật & Quản lý Bí mật tập trung (HashiCorp Vault)](#8-bảo-mật--quản-lý-bí-mật-tập-trung-hashicorp-vault---devsecops)
 
 ---
 
@@ -84,18 +85,36 @@ docker stack rm myapp
 
 ## 2. Chế độ 2: Docker Compose (Phát triển Local Dev)
 
-> **Đặc điểm:** Dùng khi phát triển tính năng, khởi chạy nhanh 1 web + 1 database.
+> **Đặc điểm:** Triển khai cụm dịch vụ hoàn chỉnh gồm: 3 Replicas Web, Nginx Cân bằng tải, SQL Server, và Két sắt HashiCorp Vault. Tự động tải bản mới từ Docker Hub nhờ chính sách `pull_policy: always`.
 
-### Khởi chạy
-```powershell
-docker compose up -d --build
-```
-* **Địa chỉ truy cập:** [http://localhost:8080](http://localhost:8080)
+### Khởi chạy (Dành cho thành viên trong nhóm)
+* **Nếu bạn đã có sẵn thư mục dự án trên máy:**
+  ```powershell
+  git pull
+  docker compose up -d
+  ```
+* **Nếu là máy mới tinh lần đầu tải dự án về:**
+  ```powershell
+  git clone <LINK_REPO_GITHUB>
+  cd webbanhangdemo
+  docker compose up -d
+  ```
+*(Docker Compose sẽ tự động tải các Image đã build sẵn về máy, tự động tạo DB và khởi động Vault mà không cần bạn phải cấu hình hay build gì thêm).*
+
+* **Địa chỉ truy cập Web bán hàng:** [http://localhost:8080](http://localhost:8080)
+  * Tài khoản Admin: `admin` / Mật khẩu: `123`
+  * Tài khoản User: Bấm Đăng ký tài khoản bất kỳ để trải nghiệm quyền xem.
+* **Giao diện Két sắt HashiCorp Vault:** [http://localhost:8200](http://localhost:8200)
+  * Phương thức: **Token** | Khóa: **`root`**
+* **Kết nối SQL Server từ SSMS:** `localhost,1434` | User: `sa` | Password: `Binhok@123456`
 
 ### Kiểm tra logs & Dừng
 ```powershell
 # Xem logs ứng dụng:
 docker compose logs -f webbanhang
+
+# Xem trạng thái kết nối Vault của Web:
+docker compose logs webbanhang | Select-String "VAULT"
 
 # Dừng hệ thống (giữ nguyên dữ liệu Database):
 docker compose down
@@ -148,11 +167,8 @@ kubectl apply -f k8s/
 * **Địa chỉ truy cập Web:** [http://localhost:30080](http://localhost:30080)
 * **Kết nối SSMS vào SQL Server K8s:** Server `127.0.0.1,1435` | User: `sa` | Password: `Binhok@123456` | Trust Server Certificate: ✓
 
-### Bước 3: Tự động cập nhật Kubernetes khi có code mới (CI/CD Auto-sync)
-```powershell
-# Bật script ngầm để K8s tự động kéo image mới nhất về khi bạn hoặc team push code lên GitHub:
-./k8s/auto-sync-watcher.ps1
-```
+### Bước 3: Tự động cập nhật Kubernetes khi có code mới (CI/CD Auto-updater)
+> Pod **`k8s-auto-updater`** (trong file `k8s/k8s-auto-updater.yaml`) đã tự động chạy ngầm bên trong cụm K8s. Cứ mỗi 15 giây nó tự kiểm tra Docker Hub, nếu có bản build mới từ GitHub Actions là nó tự động kích hoạt `kubectl rollout restart deployment/webbanhang` mà bạn không cần chạy lệnh thủ công nào!
 
 ### Bước 4: Kiểm tra và quản trị K8s
 ```powershell
@@ -198,18 +214,17 @@ kubectl get pdb
 
 ---
 
-## 4. Tự động hóa CI/CD với GitHub Actions, Watchtower & K8s Auto-sync
+## 4. Tự động hóa CI/CD với GitHub Actions, Docker Compose & K8s Auto-updater
 
-Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml` kết hợp dịch vụ **Watchtower** trong `docker-compose.yml` và bộ **Auto-sync Watcher** cho Kubernetes:
+Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml` kết hợp cấu hình `pull_policy: always` trong `docker-compose.yml` và Pod **k8s-auto-updater** cho Kubernetes:
 
 ### Quy trình hoạt động hoàn toàn tự động:
 1. Khi có bất kỳ thay đổi code nào được push lên GitHub: `git push origin main`.
 2. **GitHub Actions** tự động biên dịch .NET 9, đóng gói Docker Image và đẩy image mới nhất lên Docker Hub (`thanhvippro/webbanhang:latest`).
 3. **Phía Docker Compose (Port 8080):**
-   * Container **Watchtower** đang chạy ngầm định kỳ quét Docker Hub mỗi 10-20s.
-   * Khi phát hiện image mới, Watchtower **tự động pull về và restart lại các container web** với code mới ngay lập tức.
+   * Cấu hình `pull_policy: always` giúp Docker Compose tự động kiểm tra và kéo image mới nhất từ Docker Hub về mỗi khi bạn gõ `docker compose up -d`.
 4. **Phía Kubernetes (Port 30080):**
-   * Script `./k8s/auto-sync-watcher.ps1` phát hiện image mới từ Docker Hub và **tự động kích hoạt RollingUpdate** trên cụm Kubernetes (`kubectl rollout restart deployment/webbanhang`).
+   * Pod `k8s-auto-updater` chạy ngầm phát hiện image mới từ Docker Hub và **tự động kích hoạt RollingUpdate** trên cụm Kubernetes (`kubectl rollout restart deployment/webbanhang`).
    * Kubernetes sẽ lần lượt thay thế từng Pod cũ bằng Pod mới mang code mới mà không làm gián đoạn người dùng (Zero Downtime).
 
 ### Hướng dẫn cho người mới clone dự án về:
@@ -217,7 +232,7 @@ Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml
    ```powershell
    docker compose up -d
    ```
-   *(Docker sẽ tự động tải Watchtower cùng Web & SQL Server về, CI/CD tự kích hoạt 100%)*
+   *(Docker sẽ tự động tải Image mới nhất cùng Web, SQL Server và Vault về chạy)*
 2. **Nếu chạy Kubernetes:**
    ```powershell
    # 1. Triển khai tài nguyên K8s
@@ -225,9 +240,6 @@ Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml
 
    # 2. Mở cổng truy cập (tự động phục hồi kết nối)
    ./k8s/port-forward-loop.ps1
-
-   # 3. (Tùy chọn) Bật tự động cập nhật K8s khi có code mới trên GitHub
-   ./k8s/auto-sync-watcher.ps1
    ```
 
 ---
@@ -396,3 +408,49 @@ kubectl get pods -l "app in (prometheus, grafana)"
 ```powershell
 kubectl delete -f k8s/monitoring/
 ```
+
+---
+
+## 8. Bảo mật & Quản lý Bí mật tập trung (HashiCorp Vault - DevSecOps)
+
+Dự án áp dụng giải pháp quản trị bí mật chuẩn Enterprise **HashiCorp Vault** để giải quyết triệt để nguy cơ lộ mật khẩu Database:
+* **Zero Trust Security:** Mật khẩu SQL Server không lưu trong mã nguồn, không lưu trên Git, mà được cất trong két sắt Vault tại đường dẫn `secret/webbanhang`.
+* **Auto-Provisioning:** Container `vault-init` tự động khởi tạo secret khi hệ thống vừa bật lên.
+* **Resilience & Fallback:** Web tích hợp cơ chế tự phục hồi thông minh. Nếu Vault gặp sự cố hoặc bị tắt, Web tự động chuyển sang chuỗi kết nối dự phòng để duy trì hoạt động 100% không downtime.
+
+---
+
+### Bước 1: Mở giao diện Két sắt Vault
+* **Địa chỉ:** [http://localhost:8200](http://localhost:8200)
+* **Method:** Chọn **Token**
+* **Token:** Nhập **`root`** -> Bấm **Sign In**.
+* Bấm vào mục **`secret/`** -> chọn **`webbanhang`** để xem chuỗi kết nối SQL Server và mật khẩu `Binhok@123456` được bảo mật an toàn.
+
+---
+
+### Bước 2: Kiểm tra Web đã kết nối và lấy Secret từ Vault
+Mở PowerShell chạy lệnh:
+```powershell
+docker compose logs webbanhang | Select-String "VAULT"
+```
+👉 Màn hình sẽ xác nhận:
+`[VAULT] Ket noi HashiCorp Vault thanh cong! Da lay chuoi ket noi DB tu Vault.`
+
+---
+
+### Bước 3: Kịch bản Demo tính năng Tự phục hồi (Resilience Fallback)
+Khi thuyết trình trước thầy cô, bạn có thể thực hiện bài test chịu lỗi thực tế:
+1. **Tắt két sắt Vault:**
+   ```powershell
+   docker compose stop vault
+   ```
+2. **Khởi động lại Web khi KHÔNG CÓ Vault:**
+   ```powershell
+   docker compose restart webbanhang
+   ```
+3. **Mở trình duyệt `http://localhost:8080`:**
+   👉 Web vẫn hoạt động bình thường nhờ cơ chế Fallback dự phòng!
+4. **Bật lại Vault:**
+   ```powershell
+   docker compose start vault
+   ```
