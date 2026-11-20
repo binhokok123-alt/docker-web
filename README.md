@@ -259,7 +259,11 @@ Dự án đã tích hợp pipeline CI/CD tại file `.github/workflows/ci-cd.yml
   ```powershell
   kubectl create job --from=cronjob/sqlserver-auto-backup test-backup-01
   ```
-* **Bước 4: Phục hồi Database (Restore):**
+* **Bước 4: Tải file backup từ K8s về thư mục `backups/` trên máy tính:**
+  ```powershell
+  .\copy-backup-k8s.ps1
+  ```
+* **Bước 5: Phục hồi Database (Restore):**
   ```powershell
   .\restore-k8s.ps1
   ```

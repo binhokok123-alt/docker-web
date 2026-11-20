@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: sqlserver-auto-backup
 spec:
-  # Lịch chạy: Chạy tự động mỗi 10 phút (*/10) theo múi giờ Việt Nam
+  # Lịch chạy: Chạy tự động mỗi 30 phút (*/30) theo múi giờ Việt Nam
   timeZone: "Asia/Ho_Chi_Minh"
   schedule: "*/30 * * * *"
   concurrencyPolicy: Forbid
