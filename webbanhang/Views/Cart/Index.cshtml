@@ -1,0 +1,142 @@
+@model List<webbanhang.Models.CartItem>
+@{
+    ViewData["Title"] = "Giỏ hàng của bạn";
+    var totalAmount = Model.Sum(x => x.Total);
+}
+
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0">
+            <i class="fas fa-shopping-cart me-2" style="color:#e94560"></i>Giỏ hàng của bạn
+        </h4>
+        <a asp-controller="Product" asp-action="Index" class="btn btn-outline-secondary btn-sm" style="border-radius:20px;">
+            <i class="fas fa-arrow-left me-1"></i>Tiếp tục mua sắm
+        </a>
+    </div>
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>@TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.Any())
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm" style="border-radius:15px; overflow:hidden;">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" style="min-width: 220px;">Sản phẩm</th>
+                                    <th scope="col" class="text-center">Đơn giá</th>
+                                    <th scope="col" class="text-center" style="width: 140px;">Số lượng</th>
+                                    <th scope="col" class="text-end pe-3">Thành tiền</th>
+                                    <th scope="col" class="text-center" style="width: 60px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                                {
+                                                    <img src="@item.ImageUrl" alt="@item.ProductName" style="width:60px; height:60px; object-fit:cover; border-radius:8px;" class="me-3 border" />
+                                                }
+                                                else
+                                                {
+                                                    <div style="width:60px; height:60px; background:#f0f0f0; border-radius:8px;" class="me-3 d-flex align-items-center justify-content-center text-muted">
+                                                        <i class="fas fa-image"></i>
+                                                    </div>
+                                                }
+                                                <div>
+                                                    <h6 class="mb-0 fw-bold">@item.ProductName</h6>
+                                                    <small class="text-muted">Mã SP: #@item.ProductId</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center fw-semibold">
+                                            @item.Price.ToString("N0") đ
+                                        </td>
+                                        <td class="text-center">
+                                            <form asp-action="UpdateQuantity" method="post" class="d-flex align-items-center justify-content-center gap-1">
+                                                <input type="hidden" name="productId" value="@item.ProductId" />
+                                                <input type="number" name="quantity" value="@item.Quantity" min="1" max="99" 
+                                                       class="form-control form-control-sm text-center" style="width:65px; border-radius:8px;"
+                                                       onchange="this.form.submit()" />
+                                            </form>
+                                        </td>
+                                        <td class="text-end pe-3 fw-bold" style="color:#e94560;">
+                                            @item.Total.ToString("N0") đ
+                                        </td>
+                                        <td class="text-center">
+                                            <form asp-action="Remove" method="post">
+                                                <input type="hidden" name="productId" value="@item.ProductId" />
+                                                <button type="submit" class="btn btn-sm text-danger border-0 bg-transparent" title="Xóa">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tổng kết & Thanh toán -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm p-3" style="border-radius:15px;">
+                    <h5 class="fw-bold mb-3 border-bottom pb-2">Tóm tắt đơn hàng</h5>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tạm tính:</span>
+                        <span class="fw-semibold">@totalAmount.ToString("N0") đ</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Phí vận chuyển:</span>
+                        <span class="text-success fw-semibold">Miễn phí</span>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <span class="fw-bold fs-5">Tổng thanh toán:</span>
+                        <span class="fw-bold fs-4" style="color:#e94560;">@totalAmount.ToString("N0") đ</span>
+                    </div>
+
+                    <form asp-action="Checkout" method="post">
+                        <button type="submit" class="btn btn-primary w-100 py-2 fs-6 fw-bold" style="border-radius:30px;">
+                            <i class="fas fa-credit-card me-2"></i>Xác nhận Mua hàng
+                        </button>
+                    </form>
+                    <small class="text-muted text-center d-block mt-2">
+                        <i class="fas fa-shield-alt me-1"></i>Hỗ trợ Rolling Update Zero-Downtime
+                    </small>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5 bg-white shadow-sm" style="border-radius:15px;">
+            <i class="fas fa-shopping-basket fa-4x mb-3 text-muted"></i>
+            <h5 class="fw-bold text-muted">Giỏ hàng của bạn đang trống!</h5>
+            <p class="text-muted">Hãy chọn những món đồ bạn yêu thích và thêm vào giỏ nhé.</p>
+            <a asp-controller="Product" asp-action="Index" class="btn btn-primary px-4 py-2 mt-2" style="border-radius:30px;">
+                <i class="fas fa-store me-2"></i>Mua sắm ngay
+            </a>
+        </div>
+    }
+</div>

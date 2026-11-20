@@ -4,13 +4,24 @@ using webbanhang.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Lấy connection string: Ưu tiên lấy từ HashiCorp Vault, nếu không được thì dùng Fallback dự phòng
+// =========================================================================================
+// [CƠ CHẾ RESILIENCE & FALLBACK - BẢO MẬT VÀ TỰ PHỤC HỒI KHI VAULT GẶP SỰ CỐ]
+// =========================================================================================
+
+// BƯỚC 1 (PHƯƠNG ÁN B - FALLBACK DỰ PHÒNG):
+// Luôn nạp sẵn chuỗi kết nối mặc định từ appsettings.json hoặc biến môi trường K8s/Compose.
+// Nếu Vault gặp sự cố hoặc bị tắt, biến này sẽ được giữ nguyên để Web vẫn sống 100%.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Lấy địa chỉ và Token kết nối tới két sắt HashiCorp Vault
 var vaultAddress = builder.Configuration["Vault:Address"] ?? Environment.GetEnvironmentVariable("Vault__Address");
 var vaultToken = builder.Configuration["Vault:Token"] ?? Environment.GetEnvironmentVariable("Vault__Token") ?? "root";
 
+// BƯỚC 2 (PHƯƠNG ÁN A - ƯU TIÊN KẾT NỐI VAULT):
+// Nếu có cấu hình địa chỉ Vault, ứng dụng sẽ ưu tiên kết nối vào két sắt để lấy mật khẩu chính thức.
 if (!string.IsNullOrEmpty(vaultAddress))
 {
+    // Vòng lặp thử lại tối đa 5 lần (Retry Pattern) phòng trường hợp Vault đang khởi động
     for (int retry = 0; retry < 5; retry++)
     {
         try
@@ -18,10 +29,10 @@ if (!string.IsNullOrEmpty(vaultAddress))
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
             client.DefaultRequestHeaders.Add("X-Vault-Token", vaultToken);
 
-            // Thử KV v2 trước: /v1/secret/data/webbanhang
+            // Thử lấy secret theo chuẩn KV v2 trước: /v1/secret/data/webbanhang
             var response = client.GetAsync($"{vaultAddress.TrimEnd('/')}/v1/secret/data/webbanhang").GetAwaiter().GetResult();
             
-            // Nếu 404 thì thử tiếp KV v1: /v1/secret/webbanhang
+            // Nếu trả về 404 thì thử tiếp theo chuẩn KV v1: /v1/secret/webbanhang
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 response = client.GetAsync($"{vaultAddress.TrimEnd('/')}/v1/secret/webbanhang").GetAwaiter().GetResult();
@@ -32,38 +43,43 @@ if (!string.IsNullOrEmpty(vaultAddress))
                 var json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
                 
-                // Hỗ trợ cả 2 định dạng trả về của Vault KV v2 và KV v1
+                // Tự động phân giải cấu trúc JSON trả về của cả Vault KV v2 và KV v1
                 System.Text.Json.JsonElement secretData = default;
                 if (doc.RootElement.TryGetProperty("data", out var dataProp))
                 {
                     if (dataProp.TryGetProperty("data", out var nestedData))
                     {
-                        secretData = nestedData; // KV v2
+                        secretData = nestedData; // Định dạng KV v2
                     }
                     else
                     {
-                        secretData = dataProp; // KV v1
+                        secretData = dataProp; // Định dạng KV v1
                     }
                 }
 
+                // Nếu tìm thấy key ConnectionStrings__DefaultConnection trong Vault:
                 if (secretData.ValueKind != System.Text.Json.JsonValueKind.Undefined &&
                     secretData.TryGetProperty("ConnectionStrings__DefaultConnection", out var csVal))
                 {
                     var secretConn = csVal.GetString();
                     if (!string.IsNullOrEmpty(secretConn))
                     {
+                        // GHI ĐÈ mật khẩu lấy từ Vault vào connectionString (Ưu tiên số 1)
                         connectionString = secretConn;
                         Console.WriteLine("[VAULT] Ket noi HashiCorp Vault thanh cong! Da lay chuoi ket noi DB tu Vault.");
-                        break;
+                        break; // Lấy thành công thì thoát vòng lặp ngay
                     }
                 }
             }
             
-            // Nếu chưa sẵn sàng (vault-init đang nạp), đợi 1 giây rồi thử lại
+            // Nếu chưa lấy được (do job khởi tạo đang chạy), chờ 1 giây rồi thử lại
             Thread.Sleep(1000);
         }
         catch (Exception ex)
         {
+            // BƯỚC 3 (KÍCH HOẠT FALLBACK KHI VAULT BỊ SẬP):
+            // Nếu Vault bị tắt nguồn hoặc gặp lỗi mạng, khối catch này sẽ tóm lấy lỗi
+            // để ứng dụng KHÔNG BỊ CRASH, và tự động giữ nguyên chuỗi kết nối dự phòng (Bước 1).
             if (retry == 4)
             {
                 Console.WriteLine($"[VAULT RESILIENCE] Khong the ket noi Vault ({ex.Message}). Tu dong dung connection string du phong!");
@@ -73,7 +89,9 @@ if (!string.IsNullOrEmpty(vaultAddress))
     }
 }
 
-// Đăng ký DbContext với SQL Server (dùng chuỗi kết nối từ Vault hoặc dự phòng)
+// BƯỚC 4 (KẾT NỐI DATABASE AN TOÀN):
+// Đăng ký DbContext với chuỗi kết nối hợp lệ (lấy từ Vault hoặc từ Fallback dự phòng)
+// kèm cơ chế Retry On Failure của Entity Framework Core.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString,
         sqlOptions => sqlOptions.EnableRetryOnFailure(
