@@ -5,15 +5,15 @@ Dự án website bán hàng viết bằng **ASP.NET Core 9** kết nối **Micro
 ---
 
 ## 📑 Bảng mục lục
-1. [Các tính năng Container hóa](#-các-tính-năng-container-hóa)
-2. [Chế độ 1: Docker Swarm (Khuyên dùng với Docker Desktop)](#1-chế-độ-1-docker-swarm-khuyên-dùng-với-docker-desktop)
-3. [Chế độ 2: Docker Compose (Phát triển Local Dev)](#2-chế-độ-2-docker-compose-phát-triển-local-dev)
-4. [Chế độ 3: Kubernetes - K8s](#3-chế-độ-3-kubernetes---k8s)
-5. [Tự động hóa CI/CD với GitHub Actions & K8s Auto-sync](#4-tự-động-hóa-cicd-với-github-actions--k8s-auto-sync)
-6. [Sao lưu & Phục hồi Database (Backup & Restore)](#5-sao-lưu--phục-hồi-database-backup--restore)
-7. [Tự động co giãn theo tải (Auto-Scaling & HPA)](#6-tự-động-co-giãn-theo-tải-auto-scaling--hpa)
-8. [Hệ thống Giám sát & Dashboard (Prometheus & Grafana)](#7-hệ-thống-giám-sát--dashboard-prometheus--grafana-monitoring)
-9. [Bảo mật & Quản lý Bí mật tập trung (HashiCorp Vault)](#8-bảo-mật--quản-lý-bí-mật-tập-trung-hashicorp-vault---devsecops)
+* [Các tính năng Container hóa](#-các-tính-năng-container-hóa)
+1. [Chế độ 1: Docker Swarm (Khuyên dùng với Docker Desktop)](#1-chế-độ-1-docker-swarm-khuyên-dùng-với-docker-desktop)
+2. [Chế độ 2: Docker Compose (Phát triển Local Dev)](#2-chế-độ-2-docker-compose-phát-triển-local-dev)
+3. [Chế độ 3: Kubernetes - K8s](#3-chế-độ-3-kubernetes---k8s)
+4. [Tự động hóa CI/CD với GitHub Actions, Docker Compose & K8s Auto-updater](#4-tự-động-hóa-cicd-với-github-actions-docker-compose--k8s-auto-updater)
+5. [Sao lưu & Phục hồi Database (Backup & Restore)](#5-sao-lưu--phục-hồi-database-backup--restore)
+6. [Tự động co giãn theo tải (Auto-Scaling & HPA)](#6-tự-động-co-giãn-theo-tải-auto-scaling--hpa)
+7. [Hệ thống Giám sát & Dashboard (Prometheus & Grafana Monitoring)](#7-hệ-thống-giám-sát--dashboard-prometheus--grafana-monitoring)
+8. [Bảo mật & Quản lý Bí mật tập trung (HashiCorp Vault - DevSecOps)](#8-bảo-mật--quản-lý-bí-mật-tập-trung-hashicorp-vault---devsecops)
 
 ---
 
@@ -426,32 +426,38 @@ Dự án áp dụng giải pháp quản trị bí mật chuẩn Enterprise **Has
 ---
 
 ### PHẦN 1: Nếu chạy trên Docker Compose
-* **Mở giao diện Két sắt Vault:** [http://localhost:8200](http://localhost:8200) (Token: **`root`**)
-* **Kiểm tra Web đã nhận Secret:**
-  ```powershell
-  docker compose logs webbanhang | Select-String "VAULT"
-  ```
+1. **Khởi chạy hệ thống và kiểm tra kết nối Vault:**
+   ```powershell
+   docker compose up -d
+   docker compose logs webbanhang | Select-String "VAULT"
+   ```
+2. **Mở giao diện Két sắt Vault:**
+   * Truy cập [http://localhost:3200](http://localhost:3200)
+   * Chọn **Token** -> nhập **`root`** -> Bấm **Sign In**.
+   * Vào phần **`secret/`** -> **`webbanhang`** sẽ thấy mật khẩu / chuỗi kết nối.
 * **Kịch bản Demo Tự phục hồi:** Tắt Vault (`docker compose stop vault`) -> restart web (`docker compose restart webbanhang`) -> Web vẫn sống 100%!
 
 ---
 
 ### PHẦN 2: Nếu chạy trên Kubernetes (K8s)
-1. **Khởi chạy Vault lên cụm K8s:**
+1. **Triển khai Storage và các dịch vụ lên cụm K8s:**
    ```powershell
-   kubectl apply -f k8s/vault.yaml
-   kubectl apply -f k8s/webbanhang-deployment.yaml
+   kubectl apply -f k8s-storage/; kubectl apply -f k8s/
    ```
-2. **Kiểm tra các Pod Vault và Job khởi tạo đã hoàn thành:**
+2. **Kiểm tra trạng thái các Pod:**
    ```powershell
-   kubectl get pods -l "app=vault"
-   kubectl get jobs vault-init-job
+   kubectl get pods
    ```
-3. **Mở giao diện Két sắt Vault K8s từ máy Windows:**
-   * **Địa chỉ:** [http://localhost:32200](http://localhost:32200)
-   * **Method:** Chọn **Token** | **Token:** Nhập **`root`** -> Bấm **Sign In**.
-   * Bấm vào **`secret/`** -> **`webbanhang`** để thấy chuỗi kết nối an toàn.
-4. **Kiểm tra các Pod Web K8s đã lấy mật khẩu từ Vault:**
+3. **Kiểm tra cấu hình Vault trên Deployment `webbanhang`:**
    ```powershell
-   kubectl logs -l app=webbanhang | Select-String "VAULT"
+   kubectl describe deployment webbanhang | Select-String "Vault"
    ```
-   👉 Sẽ in ra: `[VAULT] Ket noi HashiCorp Vault thanh cong! Da lay chuoi ket noi DB tu Vault.`
+4. **Mở giao diện Két sắt Vault K8s từ máy Windows (Port-forward):**
+   ```powershell
+   kubectl port-forward service/vault 32200:8200
+   ```
+   * Sau đó truy cập [http://localhost:32200](http://localhost:32200) -> Chọn **Token** -> nhập **`root`** -> Bấm **Sign In** -> Vào **`secret/`** -> **`webbanhang`**.
+5. **Dọn dẹp / Xóa toàn bộ tài nguyên K8s khi hoàn tất:**
+   ```powershell
+   kubectl delete -f k8s/ ; kubectl delete -f k8s-storage/
+   ```
