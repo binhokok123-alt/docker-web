@@ -15,7 +15,6 @@ services:
     expose:
       - "8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=WebBanHang-docker;User Id=sa;Password=Binhok@123456;TrustServerCertificate=True
       - Vault__Address=http://vault:8200
       - Vault__Token=root
     volumes:
