@@ -1,5 +1,4 @@
 # Script tu dong Restore database tu ban backup moi nhat
-# Duoc viet boi Antigravity
 
 $backupDir = "$PSScriptRoot\backups"
 

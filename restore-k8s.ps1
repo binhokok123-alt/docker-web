@@ -1,5 +1,4 @@
 # Script tu dong Restore database cho Kubernetes (K8s)
-# Duoc viet boi Antigravity
 
 Write-Host "Dang tim ban backup moi nhat tren Pod SQL Server cua K8s..." -ForegroundColor Cyan
 

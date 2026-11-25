@@ -1,5 +1,4 @@
 # Script tu dong copy file backup moi nhat tu K8s ve thu muc backups tren may tinh Windows
-# Duoc viet boi Antigravity
 
 Write-Host "Dang tim Pod SQL Server tren K8s..." -ForegroundColor Cyan
 

@@ -1,5 +1,4 @@
 # Script tu dong backup database SQL Server cho Docker Compose
-# Duoc viet boi Antigravity
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupFileName = "backup_auto_${timestamp}.bak"

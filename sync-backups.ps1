@@ -1,5 +1,4 @@
 # Script dong bo cac file backup tu Kubernetes PVC ra thu muc backups tren may Windows
-# Duoc viet boi Antigravity
 
 $backupDir = "$PSScriptRoot\backups"
 if (!(Test-Path -Path $backupDir)) {

@@ -1,5 +1,4 @@
 # Script Mo phong HPA (Auto-Scaling) cho Docker Compose
-# Duoc viet boi Antigravity
 
 $MIN_REPLICAS = 2
 $MAX_REPLICAS = 5
